@@ -136,6 +136,7 @@ immutable OperationContext
     names::Vector{String}
     while_context::Vector{tensorflow.WhileContextDef}
     devices::Vector{Device}
+    is_top_level::Ref{Bool}
 end
 
 immutable TensorShape
@@ -175,7 +176,7 @@ type Graph
         collections[:Summaries] = []
         collections[:QueueRunners] = []
         collections[:while_context] = []
-        self = new(ptr, collections, Dict{String, TensorShape}(), Dict{String, Int}(), OperationContext(Vector{Operation}[], String[], tensorflow.WhileContextDef[], Device[]))
+        self = new(ptr, collections, Dict{String, TensorShape}(), Dict{String, Int}(), OperationContext(Vector{Operation}[], String[], tensorflow.WhileContextDef[], Device[], Ref(false)))
         finalizer(self, self->begin
             ccall((:TF_DeleteGraph, LIBTF), Void, (Ptr{Void},), self.ptr)
         end)
@@ -795,14 +796,45 @@ function with_op_control(f, control_ops)
     end
 end
 
+function with_top_level(f)
+    g = get_def_graph()
+    is_top_level = g.op_context.is_top_level
+    old_level = is_top_level[]
+    is_top_level[] = true
+    try
+        with_no_op_control() do
+            f()
+        end
+    finally
+        is_top_level[] = old_level
+    end
+end
+
+function with_no_op_control(f)
+    g = get_def_graph()
+    control_ops = deepcopy(g.op_context.control_ops)
+    empty!(g.op_context.control_ops)
+    try
+        f()
+    finally
+        append!(g.op_context.control_ops, control_ops)
+    end
+end
+
 function Operation(desc::NodeDescription)
     self = Operation()
     status = Status()
     ptr = ccall((:TF_FinishOperation, LIBTF), Ptr{Void}, (Ptr{Void}, Ptr{Void}), desc.ptr, status.ptr)
     check_status(status)
     self.ptr = ptr
-    self.graph = Nullable(desc.graph)
+    graph = desc.graph
+    self.graph = Nullable(graph)
     fillin(self)
+
+    if graph.op_context.is_top_level[]
+        add_to_collection(graph, :TopLevel, self)
+    end
+
     return self
 end
 
