@@ -436,7 +436,6 @@ Example using shape_invariants:
                     end
                 end
                 extend_graph(def_graph, g_def.node[to_delete])
-                info(to_delete)
                 deleteat!(g_def.node, unique(to_delete))
                 for collection in [:Variables, :TrainableVariables]
                     for var in get_collection(g, collection)
@@ -446,7 +445,6 @@ Example using shape_invariants:
                         end
                     end
                 end
-
 
                 for var_idx in eachindex(variables)
                     for op in g_def.node
