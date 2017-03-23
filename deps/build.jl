@@ -80,7 +80,7 @@ const cur_version = "1.0.0-rc1"
         write(file, r.data)
     end
     try_unzip()
-    mv("libtensorflow_c.so", "usr/bin/libtensorflow.dylib", remove_destination=true)
+    mv("libtensorflow.so", "usr/bin/libtensorflow.dylib", remove_destination=true)
 end
 
 @static if is_linux()
@@ -96,5 +96,5 @@ end
         write(file, r.data)
     end
     try_unzip()
-    mv("libtensorflow_c.so", "usr/bin/libtensorflow.so", remove_destination=true)
+    mv("libtensorflow.so", "usr/bin/libtensorflow.so", remove_destination=true)
 end
