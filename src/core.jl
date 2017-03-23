@@ -1454,6 +1454,7 @@ function Operation(node_def::tensorflow.NodeDef)
         name, port = parse_port_name(full_name)
         get_tensor_by_name("$name:$(port-1)")
     end
+
     op = get_all_op_list()[node_def.op]
     desc = NodeDescription(node_def.op, node_def.name)
     inputs = String[]
