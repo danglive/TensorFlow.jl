@@ -962,6 +962,9 @@ function load_proto(value::tensorflow.AttrValue)
         load_proto(value.shape)
     elseif has_field(value, :list)
         load_proto(value.list)
+    elseif has_field(value, :_type)
+        type_ = value._type
+        proto_type_map[type_]
     end
 end
 
@@ -1115,6 +1118,10 @@ end
 function setindex!(desc::NodeDescription, value::AbstractString, attr_name)
     value = String(value)
     ccall((:TF_SetAttrString, LIBTF), Void, (Ptr{Void}, Cstring, Ptr{Void}, Cint), desc.ptr, attr_name, Vector{UInt8}(value), sizeof(value))
+end
+
+function setindex!(desc::NodeDescription, value::Vector, attr_name)
+    set_attr_list(desc, attr_name, value)
 end
 
 function set_attr_list(desc::NodeDescription, attr_name, list::Vector{Int})
@@ -1440,4 +1447,51 @@ function get_all_op_list()
         op_list[op.name] = op
     end
     op_list
+end
+
+function Operation(node_def::tensorflow.NodeDef)
+    function get_tensor(full_name)
+        name, port = parse_port_name(full_name)
+        get_tensor_by_name("$name:$(port-1)")
+    end
+    op = get_all_op_list()[node_def.op]
+    desc = NodeDescription(node_def.op, node_def.name)
+    inputs = String[]
+
+    # Process control inputs
+    for input in node_def.input
+        if input[1:1] == "^"
+            name = input[2:end]
+            control_op = get(get_node_by_name(name))
+            add_control_input(desc, control_op)
+        else
+            push!(inputs, input)
+        end
+    end
+
+    # Add regular inputs
+    input_idx = 1
+    for input in op.input_arg
+        number_attr = input.number_attr
+        if isempty(number_attr)
+            add_input(desc, get_tensor(inputs[input_idx]))
+            input_idx += 1
+        else
+            N = load_proto(node_def.attr["N"])
+            tensors = []
+            for n in 1:N
+                push!(tensors, get_tensor(inputs[input_idx]))
+                input_idx += 1
+            end
+            add_input(desc, tensors)
+        end
+    end
+
+    # Add attributes
+    for (key, attr) in node_def.attr
+        value = load_proto(attr)
+        desc[key] = value
+    end
+
+    Operation(desc)
 end
