@@ -2,7 +2,7 @@ prefix = joinpath(ENV["HOME"], "tmp", "out")
 gs_bucket = "malmaud-stuff"
 version = "1.1.0"
 
-#run(`docker run -v /var/run/docker.sock:/var/run/docker.sock -e "prefix=$prefix" buildtf`)
+run(`docker run -v /var/run/docker.sock:/var/run/docker.sock -e "prefix=$prefix" buildtf`)
 
 full_names = []
 
